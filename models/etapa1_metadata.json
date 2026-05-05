@@ -1,0 +1,55 @@
+{
+  "target": "Churn Value",
+  "numeric_features": [
+    "Tenure Months",
+    "Monthly Charges",
+    "Total Charges"
+  ],
+  "categorical_features": [
+    "Gender",
+    "Senior Citizen",
+    "Partner",
+    "Dependents",
+    "Phone Service",
+    "Multiple Lines",
+    "Internet Service",
+    "Online Security",
+    "Online Backup",
+    "Device Protection",
+    "Tech Support",
+    "Streaming TV",
+    "Streaming Movies",
+    "Contract",
+    "Paperless Billing",
+    "Payment Method"
+  ],
+  "label_encoders_count": 16,
+  "train_size": 5634,
+  "test_size": 1409,
+  "churn_rate": 0.2653698707936959,
+  "results": {
+    "DummyClassifier": {
+      "accuracy": 0.7345635202271115,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "model": "DummyClassifier"
+    },
+    "LogisticRegression": {
+      "accuracy": 0.8034066713981547,
+      "f1": 0.6115007012622721,
+      "precision": 0.6430678466076696,
+      "recall": 0.5828877005347594,
+      "auc": 0.8482058436022631,
+      "model": "LogisticRegression"
+    },
+    "RandomForest": {
+      "accuracy": 0.7920511000709723,
+      "f1": 0.5710102489019033,
+      "precision": 0.6310679611650486,
+      "recall": 0.5213903743315508,
+      "auc": 0.8387687617866646,
+      "model": "RandomForestClassifier"
+    }
+  }
+}

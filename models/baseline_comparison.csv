@@ -1,0 +1,4 @@
+model_name,accuracy,precision,recall,f1,auc_roc,business_cost
+dummy,0.7345635202271115,0.0,0.0,0.0,0.5,1870
+logistic_regression,1.0,1.0,1.0,1.0,1.0,0
+random_forest,1.0,1.0,1.0,1.0,0.9999999999999999,0
