@@ -10,6 +10,9 @@ Procura:
 6. Salvar resultados
 """
 
+import json
+import pickle
+
 import torch
 import numpy as np
 import pandas as pd
@@ -252,7 +255,23 @@ def main():
     model_path = config.MODELS_DIR / "mlp_etapa2.pt"
     final_model.save(model_path)
     logger.info(f"Modelo salvo em: {model_path}")
-    
+
+    # Salvar preprocessor para a API reproduzir o pipeline em inferência
+    preprocessor_path = config.MODELS_DIR / "preprocessor.pkl"
+    with open(preprocessor_path, "wb") as f:
+        pickle.dump(preprocessor, f)
+    logger.info(f"Preprocessor salvo em: {preprocessor_path}")
+
+    feature_metadata_path = config.MODELS_DIR / "mlp_feature_metadata.json"
+    with open(feature_metadata_path, "w") as f:
+        json.dump({
+            "feature_order": X_train_pre.columns.tolist(),
+            "numeric_features": num_cols,
+            "categorical_features": cat_cols,
+            "input_dim": int(X_train_pre.shape[1]),
+        }, f, indent=2)
+    logger.info(f"Feature metadata salvo em: {feature_metadata_path}")
+
     tracker.end_run()
     
     logger.info("\n" + "=" * 80)
