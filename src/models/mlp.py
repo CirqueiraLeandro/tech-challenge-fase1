@@ -2,10 +2,11 @@
 MLP (Multi-Layer Perceptron) para previsão de churn.
 
 Arquitetura:
-- Input: 33 features (após preprocessamento)
-- Hidden: [128, 64, 32] com ReLU
+- Input: 19 features (3 numéricas + 16 categóricas, pós leakage fix)
+- Hidden: [128, 64, 32] com ReLU + BatchNorm + Dropout
 - Output: 2 classes (binary classification)
 - Dropout: 0.3 (regularização)
+- Total: 13.410 parâmetros treináveis
 """
 
 import torch
@@ -20,16 +21,16 @@ class MLPChurn(nn.Module):
     Multi-Layer Perceptron para classificação de churn.
     
     Args:
-        input_dim: Número de features de entrada (padrão: 33)
+        input_dim: Número de features de entrada (padrão: 19, pós leakage fix)
         hidden_dims: Lista com dimensões dos hidden layers (padrão: [128, 64, 32])
         output_dim: Número de classes de saída (padrão: 2)
         dropout_rate: Taxa de dropout (padrão: 0.3)
         activation: Função de ativação (padrão: ReLU)
     """
-    
+
     def __init__(
         self,
-        input_dim: int = 33,
+        input_dim: int = 19,
         hidden_dims: Optional[list] = None,
         output_dim: int = 2,
         dropout_rate: float = 0.3,
@@ -130,7 +131,7 @@ class MLPChurn(nn.Module):
 
 
 def create_mlp_model(
-    input_dim: int = 33,
+    input_dim: int = 19,
     hidden_dims: Optional[list] = None,
     output_dim: int = 2,
     dropout_rate: float = 0.3,
