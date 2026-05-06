@@ -19,7 +19,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    roc_auc_score
+    roc_auc_score, average_precision_score
 )
 
 # Configuration
@@ -310,6 +310,43 @@ with open(scaler_path, 'wb') as f:
     pickle.dump(scaler, f)
 logger.info(f"  - {scaler_path.name}")
 
+# Save label encoders + feature order for the API to reproduce preprocessing
+label_encoders_path = MODELS_DIR / 'label_encoders.pkl'
+with open(label_encoders_path, 'wb') as f:
+    pickle.dump(label_encoders, f)
+logger.info(f"  - {label_encoders_path.name}")
+
+feature_order = X_train_scaled.columns.tolist()
+feature_columns_path = MODELS_DIR / 'feature_columns.json'
+with open(feature_columns_path, 'w') as f:
+    json.dump({
+        'feature_order': feature_order,
+        'numeric_features': numeric_features,
+        'categorical_features': categorical_features,
+        'input_dim': len(feature_order),
+    }, f, indent=2)
+logger.info(f"  - {feature_columns_path.name}")
+
+# Save baseline comparison CSV with real test-set metrics
+baseline_rows = []
+for model_name, metrics in results.items():
+    row = {
+        'model': model_name,
+        'accuracy': metrics['accuracy'],
+        'precision': metrics['precision'],
+        'recall': metrics['recall'],
+        'f1': metrics['f1'],
+        'auc_roc': metrics.get('auc', np.nan),
+    }
+    baseline_rows.append(row)
+baseline_csv_path = MODELS_DIR / 'baseline_comparison.csv'
+pd.DataFrame(baseline_rows).to_csv(baseline_csv_path, index=False)
+logger.info(f"  - {baseline_csv_path.name}")
+
+# PR-AUC for LR / RF (requires proba)
+pr_auc_lr = average_precision_score(y_test, y_proba_lr)
+pr_auc_rf = average_precision_score(y_test, y_proba_rf)
+
 # Save metadata
 metadata = {
     'target': target_col,
@@ -319,8 +356,12 @@ metadata = {
     'train_size': len(X_train),
     'test_size': len(X_test),
     'churn_rate': float(churn_rate),
+    'pr_auc': {
+        'LogisticRegression': float(pr_auc_lr),
+        'RandomForest': float(pr_auc_rf),
+    },
     'results': {
-        model: {k: v if isinstance(v, (int, float, str)) else str(type(v).__name__) 
+        model: {k: v if isinstance(v, (int, float, str)) else str(type(v).__name__)
                  for k, v in metrics.items()}
         for model, metrics in results.items()
     }
