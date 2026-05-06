@@ -655,7 +655,6 @@ Esses arquivos foram criados como placeholders mas nunca implementados:
 | `tests/test_api.py` | Duplicata | Substituído por `test_api_etapa3.py` | ✓ |
 | `tests/test_data.py` | Duplicata | Substituído por `test_data_expanded.py` | ✓ |
 | `tests/test_models.py` | Duplicata | Substituído por `test_models_expanded.py` | ✓ |
-| `tests/test_everything.py` | Duplicata | Desnecessário (suites específicas) | ✓ |
 | `tests/validate_paths.py` | Duplicata | Funcionalidade em `final_validation.py` | ✓ |
 
 **Status**: ✅ Repositório limpo - apenas arquivos necessários
@@ -960,7 +959,7 @@ python -m uvicorn src.api.app:app --reload --port 8000
 
 # Etapa 4: Validar Documentação
 python tests/final_validation.py
-# ✅ Verifica MODEL_CARD.md, MONITORING.md, etc.
+# ✅ Verifica MODEL_CARD.pdf, MONITORING.md, etc.
 ```
 
 ### 3. Testar Tudo
