@@ -38,8 +38,8 @@ Monitorar a performance, disponibilidade e confiabilidade do modelo MLP em produ
 ### Performance em Produção
 
 Baseline de referência (test set, pós data leakage fix):
-- LogisticRegression: Accuracy 80.3%, AUC-ROC 0.848, F1 0.611
-- MLP PyTorch: Accuracy 79.3%, AUC-ROC 0.837, F1 0.556
+- LogisticRegression (produção): Accuracy 80.3%, AUC-ROC 0.848, F1 0.611
+- MLP PyTorch (servido pela API): Accuracy 79.2%, AUC-ROC 0.833, F1 0.583
 
 | Métrica | Baseline | SLO | Warning | Crítico | Frequência |
 |---------|----------|-----|---------|---------|-----------|

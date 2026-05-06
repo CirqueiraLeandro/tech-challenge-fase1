@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red)](https://pytorch.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green)](https://fastapi.tiangolo.com)
-[![Tests](https://img.shields.io/badge/Tests-130%2B%20passing-brightgreen)](#testes-automatizados)
+[![Tests](https://img.shields.io/badge/Tests-137%20passing-brightgreen)](#testes-automatizados)
 
 **Desafio**: Operadora de telecomunicações está perdendo clientes em ritmo acelerado. Necessita prever quais clientes têm risco de churn.
 
@@ -31,10 +31,10 @@ Arquivo: `data/raw/Telco_customer_churn.xlsx`
 
 | Modelo | Accuracy | F1 | AUC-ROC | PR-AUC |
 |--------|----------|----|---------|--------|
-| DummyClassifier | 73.46% | 0.00 | 0.500 | 0.265 |
-| LogisticRegression | 80.34% | 0.611 | **0.848** | 0.644 |
-| RandomForest | 79.35% | 0.565 | 0.834 | 0.627 |
-| **MLP PyTorch (Etapa 2)** | 79.28% | 0.556 | 0.837 | 0.649 |
+| DummyClassifier | 73.46% | 0.000 | 0.500 | 0.265 |
+| **LogisticRegression** | **80.34%** | **0.611** | **0.848** | **0.644** |
+| RandomForest | 79.20% | 0.571 | 0.839 | 0.627 |
+| MLP PyTorch (Etapa 2) | 79.22% | 0.583 | 0.833 | 0.592 |
 
 > **Nota sobre data leakage**: As colunas `Churn Score`, `Churn Reason`, `CLTV` e identificadores geográficos foram removidas por causar leakage do target. As métricas acima refletem performance realista.
 
@@ -97,7 +97,7 @@ Telecommunications_Industry/
 │   │   ├── mlp.py                   # Arquitetura MLP (13.410 params)
 │   │   └── training.py              # Loop de treinamento + early stopping
 │   ├── api/
-│   │   ├── app.py                   # FastAPI v2.0.0
+│   │   ├── app.py                   # FastAPI v2.1.0 (lifespan + preprocessor real)
 │   │   └── schemas.py               # Pydantic v2 validation
 │   ├── preprocessing/
 │   │   └── pipeline.py              # Sklearn pipeline (ColumnTransformer)
@@ -112,6 +112,10 @@ Telecommunications_Industry/
 │   ├── logisticregression_baseline.pkl
 │   ├── randomforest_baseline.pkl
 │   ├── scaler.pkl
+│   ├── label_encoders.pkl           # Encoders categóricos (etapa1)
+│   ├── feature_columns.json         # Ordem de colunas (etapa1)
+│   ├── preprocessor.pkl             # DataPreprocessor (usado pela API)
+│   ├── mlp_feature_metadata.json    # input_dim + feature_order do MLP
 │   ├── mlp_etapa2.pt                # MLP treinado (input_dim=19)
 │   ├── etapa1_metadata.json
 │   ├── baseline_comparison.csv
@@ -192,28 +196,45 @@ python -m uvicorn src.api.app:app --reload --port 8000
 | POST | `/predict` | Predição individual |
 | POST | `/predict_batch` | Predição em lote |
 
-**Exemplo `/predict`**:
+**Exemplo `/predict`** (todas as 19 features do dataset IBM Telco):
 ```bash
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{
-    "age": 35, "tenure": 12,
-    "monthly_charges": 65.5, "total_charges": 786.0,
-    "gender": "M", "internet_service": "Fiber optic",
-    "contract": "Month-to-month"
+    "Tenure Months": 12,
+    "Monthly Charges": 65.5,
+    "Total Charges": 786.0,
+    "Gender": "Male",
+    "Senior Citizen": "No",
+    "Partner": "Yes",
+    "Dependents": "No",
+    "Phone Service": "Yes",
+    "Multiple Lines": "No",
+    "Internet Service": "Fiber optic",
+    "Online Security": "No",
+    "Online Backup": "Yes",
+    "Device Protection": "No",
+    "Tech Support": "No",
+    "Streaming TV": "Yes",
+    "Streaming Movies": "Yes",
+    "Contract": "Month-to-month",
+    "Paperless Billing": "Yes",
+    "Payment Method": "Electronic check"
   }'
 ```
 
 **Resposta**:
 ```json
 {
-  "prediction": 0,
-  "probability_no_churn": 0.887,
-  "probability_churn": 0.113,
-  "confidence": 0.887,
-  "timestamp": "2026-04-25T14:56:08.418976"
+  "prediction": 1,
+  "probability_no_churn": 0.32,
+  "probability_churn": 0.68,
+  "confidence": 0.68,
+  "timestamp": "2026-05-05T20:45:00.000000"
 }
 ```
+
+> A inferência usa o `preprocessor.pkl` salvo em treino (StandardScaler + LabelEncoders), garantindo que o payload seja transformado exatamente como os dados de treino.
 
 ---
 
@@ -230,10 +251,10 @@ python -m pytest tests/ -v
 | test_schema_pandera.py | 12 | Schema validation (pandera) |
 | test_mlp_etapa2.py | 21 | Arquitetura MLP |
 | test_models_expanded.py | 15 | Baselines |
-| test_api_etapa3.py | 18 | FastAPI endpoints |
+| test_api_etapa3.py | 22 | FastAPI endpoints (inferência real) |
 | test_mlflow.py | 11 | MLflow tracking |
-| test_everything.py | ~10 | Integration |
-| **Total** | **130+** | **todos passando** |
+| test_e2e.py + test_integration_e2e.py | 10 | Integration & E2E |
+| **Total** | **137** | **todos passando** |
 
 **Marcadores python -m pytest**:
 ```bash

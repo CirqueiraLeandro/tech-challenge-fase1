@@ -27,6 +27,10 @@
   "train_size": 5634,
   "test_size": 1409,
   "churn_rate": 0.2653698707936959,
+  "pr_auc": {
+    "LogisticRegression": 0.6439889573897816,
+    "RandomForest": 0.6468202753480103
+  },
   "results": {
     "DummyClassifier": {
       "accuracy": 0.7345635202271115,

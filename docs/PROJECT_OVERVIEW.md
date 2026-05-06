@@ -24,7 +24,7 @@ Dataset: Telco_customer_churn.xlsx
 ├─ 19 features (pós remoção de data leakage)
 │  ├─ Numéricas (3): tenure, monthly_charges, total_charges
 │  └─ Categóricas (16): gender, contract, internet_service...
-├─ 26.54% churn rate (1.869 churners / 5.174 retidos)
+├─ 26.54% churn rate (1,869 churners / 5,174 retidos)
 └─ Split: 80/20 estratificado (5.634 treino / 1.409 teste)
 
 Problema: Classificação Binária (Churn: Sim/Não)
@@ -167,8 +167,8 @@ Epochs Máx:   100
 |---|---|---|---|---|
 | DummyClassifier | 73.46% | 0.000 | 0.500 | 0.265 |
 | **LogisticRegression** | **80.34%** | **0.611** | **0.848** | **0.644** |
-| RandomForest | 79.35% | 0.565 | 0.834 | 0.627 |
-| MLP PyTorch | 79.28% | 0.556 | 0.837 | 0.649 |
+| RandomForest | 79.20% | 0.571 | 0.839 | 0.627 |
+| MLP PyTorch | 79.22% | 0.583 | 0.833 | 0.592 |
 
 > LogisticRegression selecionada para produção — melhor AUC-ROC e Recall com menor complexidade.
 
@@ -429,8 +429,8 @@ python -m mlflow ui --host 0.0.0.0 --port 5000
 |---|---|---|---|---|---|
 | DummyClassifier | 73.46% | 0.000 | 0.500 | 0.265 | Baseline |
 | **LogisticRegression** | **80.34%** | **0.611** | **0.848** | **0.644** | **Produção** |
-| RandomForest | 79.35% | 0.565 | 0.834 | 0.627 | Alternativa |
-| MLP PyTorch | 79.28% | 0.556 | 0.837 | 0.649 | Alternativa |
+| RandomForest | 79.20% | 0.571 | 0.839 | 0.627 | Alternativa |
+| MLP PyTorch | 79.22% | 0.583 | 0.833 | 0.592 | API (servida) |
 
 ### Entregáveis Completos
 
@@ -439,10 +439,10 @@ python -m mlflow ui --host 0.0.0.0 --port 5000
 | EDA + ML Canvas + Baselines | ✅ | `etapa1_eda_baselines.py` |
 | MLP PyTorch + MLflow | ✅ | `train_mlp.py`, 83+ runs |
 | API FastAPI + 5 endpoints | ✅ | `src/api/app.py` |
-| 135 testes automatizados | ✅ | 8 suites, ruff zero erros |
+| 137 testes automatizados | ✅ | 8 suites, ruff zero erros |
 | Model Card (HTML) | ✅ | Métricas, fairness, deploy |
 | Documentação completa | ✅ | 7 documentos em `docs/` |
-| Commits limpos | ✅ | 6 commits temáticos no GitHub |
+| Commits limpos | ✅ | 8 commits temáticos (6 em prd + 2 em dev) no GitHub |
 | Arquitetura deploy documentada | ✅ | Real-Time vs Batch com justificativa |
 
 ### Lições Aprendidas
@@ -467,7 +467,7 @@ python -m mlflow ui --host 0.0.0.0 --port 5000
 | Estrutura organizada src/, data/, tests/, docs/ | Completa | ✅ |
 | README.md com setup e execução | README.md | ✅ |
 | pyproject.toml como single source of truth | pyproject.toml | ✅ |
-| Commits limpos e significativos | 6 commits temáticos | ✅ |
+| Commits limpos e significativos | 8 commits temáticos (6 em prd + 2 em dev) | ✅ |
 | .gitignore adequado para ML | .gitignore | ✅ |
 | MLP com PyTorch | src/models/mlp.py | ✅ |
 | Baselines Scikit-Learn | src/baselines.py | ✅ |
@@ -476,7 +476,7 @@ python -m mlflow ui --host 0.0.0.0 --port 5000
 | Testes (≥ 3 tipos) | Unit, Schema, E2E, Smoke | ✅ |
 | Logging estruturado | src/logger.py | ✅ |
 | Linting ruff | Zero erros | ✅ |
-| Model Card | docs/MODEL_CARD.html | ✅ |
+| Model Card | docs/MODEL_CARD.pdf | ✅ |
 | Deploy arquitetura documentada | TECHNICAL_GUIDE.md §8 | ✅ |
 | Vídeo STAR 5 min | [YouTube — Apresentação STAR](https://www.youtube.com/watch?v=cD3LQXYjdH0) | ✅ |
 

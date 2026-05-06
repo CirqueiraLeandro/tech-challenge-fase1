@@ -21,9 +21,9 @@ class TestMLPArchitecture:
     """Testes de arquitetura MLP."""
     
     def test_mlp_init_default(self):
-        """MLP com parâmetros padrão."""
+        """MLP com parâmetros padrão (19 features pós leakage fix)."""
         model = MLPChurn()
-        assert model.input_dim == 33
+        assert model.input_dim == 19
         assert model.output_dim == 2
         assert model.hidden_dims == [128, 64, 32]
         assert model.dropout_rate == 0.3
@@ -58,7 +58,7 @@ class TestMLPArchitecture:
     def test_mlp_predict_shape(self):
         """Predict retorna shape (batch_size,)."""
         model = MLPChurn()
-        X = torch.randn(16, 33)
+        X = torch.randn(16, 19)
         predictions = model.predict(X)
         assert predictions.shape == (16,)
         assert predictions.dtype == np.int64
@@ -66,21 +66,21 @@ class TestMLPArchitecture:
     def test_mlp_predict_values(self):
         """Predict retorna valores 0 ou 1."""
         model = MLPChurn()
-        X = torch.randn(10, 33)
+        X = torch.randn(10, 19)
         predictions = model.predict(X)
         assert np.all((predictions == 0) | (predictions == 1))
     
     def test_mlp_predict_proba_shape(self):
         """Predict proba retorna (batch_size, num_classes)."""
         model = MLPChurn()
-        X = torch.randn(16, 33)
+        X = torch.randn(16, 19)
         proba = model.predict_proba(X)
         assert proba.shape == (16, 2)
     
     def test_mlp_predict_proba_valid_probabilities(self):
         """Probabilidades somam 1 e estão entre 0-1."""
         model = MLPChurn()
-        X = torch.randn(10, 33)
+        X = torch.randn(10, 19)
         proba = model.predict_proba(X)
         
         # Somam 1
@@ -102,7 +102,7 @@ class TestMLPArchitecture:
         # BatchNorm em eval() usa running statistics → saídas idênticas
         model1.eval()
         model2.eval()
-        X = torch.randn(5, 33)
+        X = torch.randn(5, 19)
         with torch.no_grad():
             out1 = model1.forward(X)
             out2 = model2.forward(X)
@@ -113,7 +113,7 @@ class TestMLPArchitecture:
         activations = ["relu", "elu", "tanh", "sigmoid"]
         for act in activations:
             model = MLPChurn(activation=act)
-            X = torch.randn(8, 33)
+            X = torch.randn(8, 19)
             output = model.forward(X)
             assert output.shape == (8, 2)
     
@@ -170,9 +170,9 @@ class TestMLPTrainer:
     def sample_data(self):
         """Gerar dados de amostra."""
         np.random.seed(42)
-        X_train = np.random.randn(100, 33).astype(np.float32)
+        X_train = np.random.randn(100, 19).astype(np.float32)
         y_train = np.random.randint(0, 2, 100)
-        X_val = np.random.randn(20, 33).astype(np.float32)
+        X_val = np.random.randn(20, 19).astype(np.float32)
         y_val = np.random.randint(0, 2, 20)
         return X_train, y_train, X_val, y_val
     
@@ -231,7 +231,7 @@ class TestCrossValidation:
     def cv_data(self):
         """Dados para CV."""
         np.random.seed(42)
-        X = np.random.randn(200, 33).astype(np.float32)
+        X = np.random.randn(200, 19).astype(np.float32)
         y = np.random.randint(0, 2, 200)
         return X, y
     
@@ -267,9 +267,9 @@ class TestIntegration:
         """Pipeline completo: modelo → treino → predição."""
         # Dados
         np.random.seed(42)
-        X_train = np.random.randn(100, 33).astype(np.float32)
+        X_train = np.random.randn(100, 19).astype(np.float32)
         y_train = np.random.randint(0, 2, 100)
-        X_test = np.random.randn(20, 33).astype(np.float32)
+        X_test = np.random.randn(20, 19).astype(np.float32)
         
         # Treinar
         model = MLPChurn()

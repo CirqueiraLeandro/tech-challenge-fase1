@@ -1,50 +1,59 @@
-.PHONY: help install dev test lint format run-api run-notebook clean
+.PHONY: help install dev test smoke-test schema-test lint format etapa1 train-mlp run-api run-notebook mlflow-ui clean
+
+PY ?= python
 
 help:
-	@echo "Available commands:"
-	@echo "  make install       - Install dependencies"
-	@echo "  make dev           - Install development dependencies"
-	@echo "  make test          - Run tests with coverage"
-	@echo "  make lint          - Run linting with ruff"
-	@echo "  make format        - Format code with black and isort"
-	@echo "  make run-api       - Start FastAPI server"
-	@echo "  make run-notebook  - Start Jupyter notebook"
-	@echo "  make clean         - Clean temporary files"
+	@echo "Targets disponiveis:"
+	@echo "  make install       - Instala dependencias (pip install -e .)"
+	@echo "  make dev           - Instala dependencias de desenvolvimento"
+	@echo "  make test          - Roda toda a suite com cobertura"
+	@echo "  make smoke-test    - Roda apenas testes marcados @pytest.mark.smoke"
+	@echo "  make schema-test   - Roda apenas testes marcados @pytest.mark.schema"
+	@echo "  make lint          - Roda ruff sobre src/ e tests/"
+	@echo "  make format        - Formata codigo com black + isort"
+	@echo "  make etapa1        - Executa Etapa 1 (EDA + baselines)"
+	@echo "  make train-mlp     - Executa Etapa 2 (treina MLP + salva preprocessor)"
+	@echo "  make run-api       - Sobe a API FastAPI em http://localhost:8000"
+	@echo "  make run-notebook  - Inicia o Jupyter notebook"
+	@echo "  make mlflow-ui     - Inicia o MLflow UI em http://localhost:5000"
+	@echo "  make clean         - Remove caches (.pytest_cache, __pycache__, build artifacts)"
 
 install:
-	pip install -e .
+	$(PY) -m pip install -e .
 
 dev:
-	pip install -e ".[dev]"
+	$(PY) -m pip install -e ".[dev]"
 
 test:
-	pytest tests/ -v --cov=src --cov-report=html
+	$(PY) -m pytest tests/ -v --cov=src --cov-report=term-missing
 
 smoke-test:
-	pytest tests/ -v -m "smoke"
+	$(PY) -m pytest tests/ -v -m "smoke"
 
 schema-test:
-	pytest tests/ -v -m "schema"
+	$(PY) -m pytest tests/ -v -m "schema"
 
 lint:
-	ruff check src/ tests/ --show-source
+	$(PY) -m ruff check src/ tests/
 
 format:
-	black src/ tests/ notebooks/
-	isort src/ tests/ notebooks/
+	$(PY) -m black src/ tests/ notebooks/
+	$(PY) -m isort src/ tests/ notebooks/
+
+etapa1:
+	$(PY) -m src.etapa1_eda_baselines
+
+train-mlp:
+	$(PY) -m src.train_mlp
 
 run-api:
-	uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
+	$(PY) -m uvicorn src.api.app:app --reload --host 0.0.0.0 --port 8000
 
 run-notebook:
-	jupyter notebook notebooks/
+	$(PY) -m jupyter notebook notebooks/
 
 mlflow-ui:
-	mlflow ui --host 0.0.0.0 --port 5000
+	$(PY) -m mlflow ui --host 0.0.0.0 --port 5000
 
 clean:
-	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete
-	rm -rf build/ dist/ *.egg-info
-	rm -rf .pytest_cache/ .coverage htmlcov/
-	rm -rf .mypy_cache/ .ruff_cache/
+	$(PY) -c "import shutil, pathlib, sys; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]; [shutil.rmtree(p, ignore_errors=True) for p in ['.pytest_cache','.ruff_cache','.mypy_cache','htmlcov','build','dist']]; print('Limpeza concluida')"
