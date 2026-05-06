@@ -1,299 +1,249 @@
 """
 Testes para API FastAPI - Etapa 3.
 
-Testes cobrem:
-- Health check
-- Model info
-- Predição individual
+Cobrem:
+- Health / Info / Metrics / Root
+- Predição individual com 19 features reais (Telco IBM)
 - Predição em lote
-- Error handling
+- Validação de schema
+- Error handling (modelo ausente, payload inválido)
 """
+
+import json
+import pickle
+from datetime import datetime
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
-from datetime import datetime
-from unittest.mock import patch, MagicMock
 
-# Importar app
 from src.api.app import app
+from src.models.mlp import MLPChurn
+
+
+VALID_PAYLOAD = {
+    "Tenure Months": 12,
+    "Monthly Charges": 65.5,
+    "Total Charges": 786.0,
+    "Gender": "Male",
+    "Senior Citizen": "No",
+    "Partner": "Yes",
+    "Dependents": "No",
+    "Phone Service": "Yes",
+    "Multiple Lines": "No",
+    "Internet Service": "Fiber optic",
+    "Online Security": "No",
+    "Online Backup": "Yes",
+    "Device Protection": "No",
+    "Tech Support": "No",
+    "Streaming TV": "Yes",
+    "Streaming Movies": "Yes",
+    "Contract": "Month-to-month",
+    "Paperless Billing": "Yes",
+    "Payment Method": "Electronic check",
+}
 
 
 @pytest.fixture
 def client():
-    """FastAPI test client — raise_server_exceptions=False para testar respostas de erro."""
     return TestClient(app, raise_server_exceptions=False)
 
 
-@pytest.fixture(autouse=True)
-def mock_model():
-    """Mock modelo para testes."""
-    from src.models.mlp import MLPChurn
-    
-    # Criar modelo mock
-    model = MLPChurn()
-    
-    # Patchear a função predict
-    with patch('src.api.app._model', model):
+@pytest.fixture
+def loaded_artifacts(tmp_path_factory):
+    """Carrega artefatos reais salvos pelo train_mlp para os testes que precisam."""
+    from src.config import get_config
+    config = get_config("production")
+
+    preprocessor_path = config.MODELS_DIR / "preprocessor.pkl"
+    metadata_path = config.MODELS_DIR / "mlp_feature_metadata.json"
+    model_path = config.MODELS_DIR / "mlp_etapa2.pt"
+
+    if not (preprocessor_path.exists() and metadata_path.exists() and model_path.exists()):
+        pytest.skip("Artefatos não encontrados — rode etapa1 + train_mlp antes")
+
+    with open(preprocessor_path, "rb") as f:
+        preprocessor = pickle.load(f)
+    with open(metadata_path) as f:
+        metadata = json.load(f)
+    model = MLPChurn(input_dim=metadata["input_dim"], hidden_dims=[128, 64, 32])
+    model.load(model_path)
+    model.eval()
+
+    return {"model": model, "preprocessor": preprocessor, "metadata": metadata}
+
+
+@pytest.fixture
+def patched_app(loaded_artifacts):
+    """Patch _model, _preprocessor, _feature_metadata na app."""
+    with patch("src.api.app._model", loaded_artifacts["model"]), \
+         patch("src.api.app._preprocessor", loaded_artifacts["preprocessor"]), \
+         patch("src.api.app._feature_metadata", loaded_artifacts["metadata"]), \
+         patch("src.api.app._model_loaded_at", datetime.now()):
         yield
 
 
-class TestHealthEndpoint:
-    """Testes do endpoint /health."""
-    
-    def test_health_status_code(self, client):
-        """Health check retorna 200."""
+# ============================================================================
+# /health, /, /metrics
+# ============================================================================
+
+class TestRoot:
+    def test_root_status(self, client):
+        response = client.get("/")
+        assert response.status_code == 200
+
+    def test_root_payload(self, client):
+        data = client.get("/").json()
+        assert data["name"] == "Telco Churn Prediction API"
+        assert "version" in data and "docs" in data
+
+
+class TestHealth:
+    def test_health_status(self, client):
         response = client.get("/health")
         assert response.status_code == 200
-    
-    def test_health_response_structure(self, client):
-        """Health check tem estrutura esperada."""
-        response = client.get("/health")
-        data = response.json()
-        
-        assert 'status' in data
-        assert 'timestamp' in data
-        assert 'model_loaded' in data
-        assert data['status'] == 'healthy'
-    
-    def test_health_timestamp_format(self, client):
-        """Timestamp tem formato ISO."""
-        response = client.get("/health")
-        data = response.json()
-        
-        # Tentar parsear como ISO format
-        try:
-            datetime.fromisoformat(data['timestamp'].replace('Z', '+00:00'))
-            valid = True
-        except Exception:
-            valid = False
-        
-        assert valid
+
+    def test_health_payload(self, client):
+        data = client.get("/health").json()
+        assert data["status"] == "healthy"
+        assert "timestamp" in data
+        assert "model_loaded" in data
+        # Timestamp parseável
+        datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
 
 
-class TestInfoEndpoint:
-    """Testes do endpoint /info."""
-    
-    def test_info_status_code(self, client):
-        """Info endpoint retorna 200."""
-        with patch('src.api.app._model', MagicMock()):
+class TestMetrics:
+    def test_metrics_status(self, client):
+        response = client.get("/metrics")
+        assert response.status_code == 200
+
+    def test_metrics_payload(self, client):
+        data = client.get("/metrics").json()
+        assert data["status"] == "ok"
+        assert "model_loaded" in data
+
+
+# ============================================================================
+# /info
+# ============================================================================
+
+class TestInfo:
+    def test_info_no_model_returns_503(self, client):
+        with patch("src.api.app._model", None), patch("src.api.app._feature_metadata", None):
             response = client.get("/info")
-            assert response.status_code in [200, 503]
-    
-    def test_info_response_structure(self, client):
-        """Info tem campos esperados."""
-        # Mock modelo
-        mock_model = MagicMock()
-        mock_model.input_dim = 19
-        mock_model.output_dim = 2
-        mock_model.hidden_dims = [128, 64, 32]
-        mock_model.count_parameters = MagicMock(return_value=50000)
-        
-        with patch('src.api.app._model', mock_model):
-            response = client.get("/info")
-            if response.status_code == 200:
-                data = response.json()
-                assert 'model_type' in data
-                assert 'input_dim' in data
-                assert 'output_dim' in data
+            assert response.status_code == 503
+
+    def test_info_with_model(self, client, patched_app):
+        response = client.get("/info")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["model_type"] == "MLPChurn"
+        assert data["input_dim"] == 19
+        assert data["output_dim"] == 2
+        assert data["hidden_dims"] == [128, 64, 32]
+        assert data["parameters"] == 13410
+        assert len(data["feature_order"]) == 19
 
 
-class TestPredictEndpoint:
-    """Testes do endpoint /predict."""
-    
-    @pytest.fixture
-    def sample_features(self):
-        """Sample de features para predição."""
-        return {
-            "age": 35,
-            "tenure": 12,
-            "monthly_charges": 65.5,
-            "total_charges": 786.0,
-            "gender": "M",
-            "internet_service": "Fiber optic",
-            "contract": "Month-to-month",
-        }
-    
-    def test_predict_valid_request(self, client, sample_features):
-        """Predição com features válidas."""
-        mock_model = MagicMock()
-        mock_model.predict_proba = MagicMock(return_value=[[0.7, 0.3]])
-        
-        with patch('src.api.app._model', mock_model):
-            response = client.post("/predict", json=sample_features)
-            assert response.status_code == 200
-            
-            data = response.json()
-            assert 'prediction' in data
-            assert 'probability_no_churn' in data
-            assert 'probability_churn' in data
-            assert 'confidence' in data
-    
-    def test_predict_invalid_age(self, client, sample_features):
-        """Predição com idade inválida."""
-        sample_features['age'] = 150  # Idade demais
-        
-        response = client.post("/predict", json=sample_features)
-        assert response.status_code == 422  # Validation error
-    
-    def test_predict_invalid_gender(self, client, sample_features):
-        """Predição com gênero inválido."""
-        sample_features['gender'] = 'X'
-        
-        response = client.post("/predict", json=sample_features)
+# ============================================================================
+# /predict
+# ============================================================================
+
+class TestPredict:
+    def test_predict_503_when_no_model(self, client):
+        with patch("src.api.app._model", None), patch("src.api.app._preprocessor", None):
+            response = client.post("/predict", json=VALID_PAYLOAD)
+            assert response.status_code == 503
+
+    def test_predict_real_inference(self, client, patched_app):
+        response = client.post("/predict", json=VALID_PAYLOAD)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["prediction"] in [0, 1]
+        assert 0 <= data["probability_no_churn"] <= 1
+        assert 0 <= data["probability_churn"] <= 1
+        # Probabilidades somam ~1
+        assert abs(data["probability_no_churn"] + data["probability_churn"] - 1.0) < 1e-5
+        assert data["confidence"] == max(
+            data["probability_no_churn"], data["probability_churn"]
+        )
+
+    def test_predict_invalid_gender(self, client, patched_app):
+        bad = VALID_PAYLOAD | {"Gender": "Other"}
+        response = client.post("/predict", json=bad)
         assert response.status_code == 422
-    
-    def test_predict_response_structure(self, client, sample_features):
-        """Resposta tem estrutura esperada."""
-        mock_model = MagicMock()
-        mock_model.predict_proba = MagicMock(return_value=[[0.8, 0.2]])
-        
-        with patch('src.api.app._model', mock_model):
-            response = client.post("/predict", json=sample_features)
-            
-            if response.status_code == 200:
-                data = response.json()
-                assert data['prediction'] in [0, 1]
-                assert 0 <= data['probability_no_churn'] <= 1
-                assert 0 <= data['probability_churn'] <= 1
-                assert 0 <= data['confidence'] <= 1
+
+    def test_predict_invalid_contract(self, client, patched_app):
+        bad = VALID_PAYLOAD | {"Contract": "Lifetime"}
+        response = client.post("/predict", json=bad)
+        assert response.status_code == 422
+
+    def test_predict_missing_field(self, client, patched_app):
+        bad = {k: v for k, v in VALID_PAYLOAD.items() if k != "Contract"}
+        response = client.post("/predict", json=bad)
+        assert response.status_code == 422
+
+    def test_predict_negative_charges_rejected(self, client, patched_app):
+        bad = VALID_PAYLOAD | {"Monthly Charges": -10}
+        response = client.post("/predict", json=bad)
+        assert response.status_code == 422
+
+    def test_predict_uses_real_features(self, client, patched_app):
+        """Cliente fiel à base + Month-to-month tem maior prob de churn que 2-year contract."""
+        month_to_month = client.post("/predict", json=VALID_PAYLOAD).json()
+        two_year = client.post(
+            "/predict", json=VALID_PAYLOAD | {"Contract": "Two year"}
+        ).json()
+        assert (
+            month_to_month["probability_churn"]
+            > two_year["probability_churn"]
+        ), "Contract real deveria afetar a predição"
 
 
-class TestBatchPredictEndpoint:
-    """Testes do endpoint /predict_batch."""
-    
-    @pytest.fixture
-    def batch_request(self):
-        """Sample de batch request."""
-        return {
-            "data": [
-                {
-                    "age": 30,
-                    "tenure": 10,
-                    "monthly_charges": 50.0,
-                    "total_charges": 500.0,
-                },
-                {
-                    "age": 40,
-                    "tenure": 20,
-                    "monthly_charges": 80.0,
-                    "total_charges": 1600.0,
-                },
-            ],
-            "return_probabilities": True,
-        }
-    
-    def test_batch_predict_valid_request(self, client, batch_request):
-        """Batch predição com dados válidos."""
-        mock_model = MagicMock()
-        mock_model.predict_proba = MagicMock(return_value=[[0.7, 0.3]])
-        
-        with patch('src.api.app._model', mock_model):
-            response = client.post("/predict_batch", json=batch_request)
-            assert response.status_code == 200
-            
-            data = response.json()
-            assert 'total_predictions' in data
-            assert 'succeeded' in data
-            assert 'failed' in data
-            assert 'predictions' in data
-    
-    def test_batch_predict_count(self, client, batch_request):
-        """Batch retorna número correto de predições."""
-        mock_model = MagicMock()
-        mock_model.predict_proba = MagicMock(return_value=[[0.7, 0.3]])
-        
-        with patch('src.api.app._model', mock_model):
-            response = client.post("/predict_batch", json=batch_request)
-            
-            if response.status_code == 200:
-                data = response.json()
-                assert data['total_predictions'] == 2
+# ============================================================================
+# /predict_batch
+# ============================================================================
 
-
-class TestRootEndpoint:
-    """Testes do endpoint root."""
-    
-    def test_root_status_code(self, client):
-        """Root endpoint retorna 200."""
-        response = client.get("/")
-        assert response.status_code == 200
-    
-    def test_root_response_structure(self, client):
-        """Root response tem informações."""
-        response = client.get("/")
-        data = response.json()
-        
-        assert 'name' in data
-        assert 'version' in data
-        assert 'docs' in data
-
-
-class TestMetricsEndpoint:
-    """Testes do endpoint /metrics."""
-    
-    def test_metrics_status_code(self, client):
-        """Metrics endpoint retorna 200."""
-        response = client.get("/metrics")
-        assert response.status_code == 200
-    
-    def test_metrics_response_structure(self, client):
-        """Metrics tem estrutura esperada."""
-        response = client.get("/metrics")
-        data = response.json()
-        
-        assert 'status' in data
-        assert 'timestamp' in data
-        assert 'model_loaded' in data
-
-
-class TestErrorHandling:
-    """Testes de tratamento de erros."""
-    
-    def test_endpoint_no_model(self, client):
-        """Endpoint sem modelo carregado retorna 503."""
-        with patch('src.api.app._model', None):
-            response = client.get("/info")
-            assert response.status_code == 503
-    
-    def test_batch_no_model(self, client):
-        """Batch sem modelo retorna 503."""
-        batch_request = {"data": [{"age": 30}], "return_probabilities": True}
-        
-        with patch('src.api.app._model', None):
-            response = client.post("/predict_batch", json=batch_request)
+class TestPredictBatch:
+    def test_batch_503_when_no_model(self, client):
+        with patch("src.api.app._model", None), patch("src.api.app._preprocessor", None):
+            response = client.post("/predict_batch", json={"data": [VALID_PAYLOAD]})
             assert response.status_code == 503
 
+    def test_batch_predict_two_samples(self, client, patched_app):
+        request = {"data": [VALID_PAYLOAD, VALID_PAYLOAD], "return_probabilities": True}
+        response = client.post("/predict_batch", json=request)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_predictions"] == 2
+        assert data["succeeded"] == 2
+        assert data["failed"] == 0
+        for item in data["predictions"]:
+            assert item["prediction"] in [0, 1]
+            assert "probability_churn" in item
 
-class TestIntegration:
-    """Testes de integração."""
-    
-    def test_full_flow(self, client):
-        """Flow completo: health → info → predict."""
-        mock_model = MagicMock()
-        mock_model.input_dim = 19
-        mock_model.output_dim = 2
-        mock_model.hidden_dims = [128, 64, 32]
-        mock_model.count_parameters = MagicMock(return_value=50000)
-        mock_model.predict_proba = MagicMock(return_value=[[0.6, 0.4]])
-        
-        with patch('src.api.app._model', mock_model):
-            # Health
-            response = client.get("/health")
-            assert response.status_code == 200
-            
-            # Info
-            response = client.get("/info")
-            assert response.status_code == 200
-            
-            # Predict
-            features = {
-                "age": 35,
-                "tenure": 12,
-                "monthly_charges": 65.5,
-                "total_charges": 786.0,
-                "gender": "M",
-                "internet_service": "Fiber optic",
-                "contract": "Month-to-month",
-            }
-            response = client.post("/predict", json=features)
-            assert response.status_code == 200
+    def test_batch_no_probabilities(self, client, patched_app):
+        request = {"data": [VALID_PAYLOAD], "return_probabilities": False}
+        data = client.post("/predict_batch", json=request).json()
+        assert "probability_churn" not in data["predictions"][0]
+
+    def test_batch_partial_failure(self, client, patched_app):
+        bad_sample = {"Gender": "Male"}  # missing fields
+        request = {"data": [VALID_PAYLOAD, bad_sample], "return_probabilities": True}
+        data = client.post("/predict_batch", json=request).json()
+        assert data["total_predictions"] == 2
+        assert data["succeeded"] == 1
+        assert data["failed"] == 1
+        assert "error" in data["predictions"][1]
+
+
+# ============================================================================
+# Latency middleware
+# ============================================================================
+
+class TestLatencyHeader:
+    def test_x_process_time_header(self, client):
+        response = client.get("/health")
+        assert "X-Process-Time-Ms" in response.headers
+        elapsed_ms = float(response.headers["X-Process-Time-Ms"])
+        assert elapsed_ms >= 0

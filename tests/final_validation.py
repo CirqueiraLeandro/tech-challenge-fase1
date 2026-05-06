@@ -101,12 +101,12 @@ try:
     from src.models.training import EarlyStopping
     
     # Test MLP creation
-    model = MLPChurn(input_dim=33, hidden_dims=[128, 64, 32], dropout_rate=0.3)
+    model = MLPChurn(input_dim=19, hidden_dims=[128, 64, 32], dropout_rate=0.3)
     print("  [OK] MLP criado")
     print(f"      - Parâmetros: {model.count_parameters():,}")
-    
+
     # Test forward pass
-    x = torch.randn(16, 33)
+    x = torch.randn(16, 19)
     out = model(x)
     assert out.shape == (16, 2)
     print(f"  [OK] Forward pass: {x.shape} -> {out.shape}")
